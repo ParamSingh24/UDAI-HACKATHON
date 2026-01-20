@@ -39,7 +39,11 @@ Thumbs.db
 # Data files (large CSVs)
 *.csv
 cleaned_data/
-aoee_output/*.csv
+
+# EXCEPT sample data and model files (needed for Streamlit Cloud)
+!aoee_output/aoee_sample_data.csv
+!aoee_output/aoee_model.pkl
+!aoee_output/model_features.pkl
 
 # Keep plots
 !aoee_output/plots/*.png

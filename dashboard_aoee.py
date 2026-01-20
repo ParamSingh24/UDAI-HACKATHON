@@ -9,9 +9,12 @@ import seaborn as sns
 # Page Config
 st.set_page_config(page_title="Aadhaar Impact Engine (AOEE)", layout="wide")
 
-# Paths
-BASE_PATH = r"c:\Users\param\OneDrive\Desktop\Data Hackathon UDAI"
-DATA_PATH = os.path.join(BASE_PATH, 'aoee_output', 'aoee_unified_dataset.csv')
+# Paths - Updated for Streamlit Cloud compatibility
+import os
+
+# Use relative paths that work both locally and on Streamlit Cloud
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_PATH, 'aoee_output', 'aoee_sample_data.csv')
 MODEL_PATH = os.path.join(BASE_PATH, 'aoee_output', 'aoee_model.pkl')
 FEATURES_PATH = os.path.join(BASE_PATH, 'aoee_output', 'model_features.pkl')
 
@@ -107,23 +110,35 @@ def main():
                 st.metric(label="Projected Update Gap", value=f"{new_gap:,.0f}", delta=f"-{gap_reduction:,.0f}", delta_color="inverse")
                 st.metric(label="Modeled Demand (Biometric)", value=f"{predicted_demand:,.0f}")
 
-                # Improved Chart
+                # Improved Chart - Handle negative gaps (excess capacity)
                 fig, ax = plt.subplots(figsize=(10, 6))
-                bars = ax.bar(["Current\nGap", "Projected\nGap"], [current_gap, new_gap], 
+                
+                # Use absolute values for display, but keep track of sign
+                current_gap_display = abs(current_gap)
+                new_gap_display = abs(new_gap)
+                
+                # Ensure minimum height for visibility
+                min_height = max(current_gap_display, new_gap_display) * 0.05 if max(current_gap_display, new_gap_display) > 0 else 100
+                current_gap_display = max(current_gap_display, min_height)
+                new_gap_display = max(new_gap_display, min_height)
+                
+                bars = ax.bar(["Current\nGap", "Projected\nGap"], [current_gap_display, new_gap_display], 
                               color=['#e74c3c', '#27ae60'], width=0.6, edgecolor='black', linewidth=1.5)
-                ax.set_ylabel("Update Gap Volume", fontsize=12, fontweight='bold')
-                ax.set_title(f"Impact of {vans} Mobile Vans in {selected_state}", fontsize=14, fontweight='bold')
+                ax.set_ylabel("Update Gap Volume (Absolute)", fontsize=12, fontweight='bold')
+                ax.set_title(f"Impact of {vans} Mobile Vans in {selected_state} - {selected_district}", fontsize=14, fontweight='bold')
                 ax.grid(axis='y', alpha=0.3, linestyle='--')
                 
-                # Add value labels
-                for i, (bar, v) in enumerate(zip(bars, [current_gap, new_gap])):
+                # Add value labels with original values
+                for i, (bar, v_display, v_actual) in enumerate(zip(bars, [current_gap_display, new_gap_display], [current_gap, new_gap])):
                     height = bar.get_height()
+                    label = f'{v_actual:,.0f}' if v_actual >= 0 else f'{v_actual:,.0f} (Excess)'
                     ax.text(bar.get_x() + bar.get_width()/2., height,
-                           f'{v:,.0f}',
+                           label,
                            ha='center', va='bottom', fontsize=11, fontweight='bold')
                 
                 st.pyplot(fig)
                 plt.close(fig)
+
 
     elif page == "ROI Predictor":
         st.header("💰 Intervention ROI Predictor")
@@ -168,7 +183,7 @@ def main():
             # Show top 20 anomalies
             st.subheader("Top 20 Hardware Failure Hotspots")
             top_anomalies = anomalies[['state', 'district', 'pincode', 'Auth_Failure_Rate', 'Total_Updates']].sort_values('Auth_Failure_Rate', ascending=False).head(20)
-            st.dataframe(top_anomalies, use_container_width=True)
+            st.dataframe(top_anomalies, width='stretch')
             
             # State-level aggregation for better visualization
             st.subheader("State-Level Failure Rate Analysis")
@@ -198,7 +213,7 @@ def main():
             
             # Show summary table
             st.subheader("State Summary")
-            st.dataframe(state_failures, use_container_width=True, hide_index=True)
+            st.dataframe(state_failures, width='stretch', hide_index=True)
 
 if __name__ == "__main__":
     main()
