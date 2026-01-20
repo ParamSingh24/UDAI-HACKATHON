@@ -123,11 +123,12 @@ def process_aoee_data():
     # GUP Index = Female / Male (Ideal ~ 1.0)
     merged_df['GUP_Index'] = merged_df['Female_Updates'] / (merged_df['Male_Updates'] + 1)
     
-    # C. Update Gap
-    # (Use Case: 5-year and 15-year mandatories)
-    # Proxy: Estimated Mandatory Updates Due ~ 10% of Enrollment Base vs Actual Updates
-    estimated_due = merged_df['Total_Enrollment'] * 0.10 
-    merged_df['Update_Gap'] = estimated_due - merged_df['Total_Updates']
+    # C. Update Gap (FIXED: Should be positive when there's actual gap)
+    # Logic: Children (age 5-17) need mandatory updates every 5/15 years
+    # Estimate: 20% of age_5_17 population needs updates annually
+    mandatory_population = merged_df['age_5_17'] * 0.20
+    # Gap = How many MORE updates are needed (positive = shortage)
+    merged_df['Update_Gap'] = np.maximum(0, mandatory_population - merged_df['Total_Updates'])
     
     # D. Vulnerability Index (Existing)
     total_activity_all = merged_df['Total_Enrollment'] + merged_df['Total_Updates']
@@ -135,13 +136,13 @@ def process_aoee_data():
         (merged_df['age_0_5'] * 1.5) + (merged_df['age_18_greater'] * 1.2)
     ) / (total_activity_all + 1)
 
-    # E. Anomaly Flag (Strict 2-sigma)
+    # E. Anomaly Flag (Relaxed to 1.5-sigma for realistic detection)
     # Calculate Mean & Std Dev per District to find local anomalies
     district_stats = merged_df.groupby('district')['Total_Updates'].agg(['mean', 'std']).reset_index()
     merged_df = pd.merge(merged_df, district_stats, on='district', suffixes=('', '_dist'))
     
-    # Anomaly = Activity < (Mean - 2*StdDev)
-    merged_df['Is_Anomaly'] = merged_df['Total_Updates'] < (merged_df['mean'] - 2 * merged_df['std'])
+    # Anomaly = Activity < (Mean - 1.5*StdDev) - More sensitive threshold
+    merged_df['Is_Anomaly'] = merged_df['Total_Updates'] < (merged_df['mean'] - 1.5 * merged_df['std'])
     merged_df['Is_Anomaly'] = merged_df['Is_Anomaly'].astype(int)
     
     # Cleanup aux columns
